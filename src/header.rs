@@ -26,7 +26,7 @@ impl HeaderView {
         // Dummy Data
         session_info.set_label("User@Host");
         os_info.set_label("Ubuntu 20.04");
-        session_time.set_label("");
+        session_time.set_label("The Singularity") ;
 
         Self {
             container,
