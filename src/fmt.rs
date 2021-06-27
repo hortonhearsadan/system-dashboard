@@ -1,4 +1,3 @@
-
 pub fn get_session_name(user: &str, host: &str) -> String {
     format!("{}@{}", user, host)
 }

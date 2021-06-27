@@ -26,7 +26,7 @@ impl HeaderView {
         // Dummy Data
         session_info.set_label("User@Host");
         os_info.set_label("Ubuntu 20.04");
-        session_time.set_label("The Singularity") ;
+        session_time.set_label("The Singularity");
 
         Self {
             container,
@@ -39,7 +39,9 @@ impl HeaderView {
     pub fn update(&self, system_info: &SystemInfo) {
         self.session_info
             .set_label(&get_session_name(&system_info.user, &system_info.host));
-        self.session_time.set_label(&*system_info.datetime)
+        self.session_time.set_label(&*system_info.datetime);
+        self.os_info.set_label(&*system_info.os);
+
     }
 
     pub(super) fn widget(&self) -> &impl IsA<Widget> {
