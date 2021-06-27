@@ -1,6 +1,6 @@
 use crate::fmt::trim_newline;
-use std::process::Command;
 use os_release::OsRelease;
+use std::process::Command;
 
 #[derive(Default)]
 pub struct SystemInfo {
@@ -20,12 +20,11 @@ impl SystemInfo {
             system_info.host = host
         }
         if let Some(os) = get_os() {
-            system_info.os =os
+            system_info.os = os
         }
 
         system_info
     }
-
 
     pub fn update(&mut self) {
         if let Some(datetime) = get_datetime() {
@@ -37,8 +36,7 @@ impl SystemInfo {
 fn get_os() -> Option<String> {
     if let Ok(osr) = OsRelease::new() {
         Some(osr.pretty_name)
-    }
-    else{
+    } else {
         None
     }
 }

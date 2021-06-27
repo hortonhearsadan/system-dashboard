@@ -47,15 +47,14 @@ impl Dashboard {
 
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
             thread::spawn(move || loop {
-                tx.send(1);
+                let _ = tx.send(1);
                 thread::sleep(Duration::from_millis(500))
             });
 
             let system_info = RefCell::new(SystemInfo::new());
             let widgets = Rc::new(Widgets::new(&app));
 
-
-            rx.attach(None, move |_|  {
+            rx.attach(None, move |_| {
                 update(&system_info, &widgets);
                 glib::Continue(true)
             });

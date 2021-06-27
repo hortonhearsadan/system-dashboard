@@ -41,7 +41,6 @@ impl HeaderView {
             .set_label(&get_session_name(&system_info.user, &system_info.host));
         self.session_time.set_label(&*system_info.datetime);
         self.os_info.set_label(&*system_info.os);
-
     }
 
     pub(super) fn widget(&self) -> &impl IsA<Widget> {
