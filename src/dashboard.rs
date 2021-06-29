@@ -1,6 +1,8 @@
 use gio::prelude::*;
 use gtk::prelude::*;
 
+use crate::cpu::CPUView;
+use crate::gpu::GPUView;
 use crate::header::HeaderView;
 use crate::style::BASE_STYLE;
 use crate::system::SystemInfo;
@@ -48,7 +50,7 @@ impl Dashboard {
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
             thread::spawn(move || loop {
                 let _ = tx.send(1);
-                thread::sleep(Duration::from_millis(500))
+                thread::sleep(Duration::from_millis(50))
             });
 
             let system_info = RefCell::new(SystemInfo::new());
@@ -70,11 +72,13 @@ fn update(system_info: &RefCell<SystemInfo>, widgets: &Rc<Widgets>) {
     system_info.borrow_mut().update();
     let system_info = system_info.borrow();
     widgets.header.update(&system_info);
+    widgets.gpu_view.update(&system_info);
 }
 
 struct Widgets {
     _mwnd: gtk::ApplicationWindow,
     header: HeaderView,
+    gpu_view: GPUView,
 }
 
 impl Widgets {
@@ -88,11 +92,17 @@ impl Widgets {
 
         let header = HeaderView::new();
 
+        let cpu_view = CPUView::new();
+        let gpu_view = GPUView::new();
+
         let widgets_grid = gtk::GridBuilder::new()
             .row_spacing(12)
             .vexpand(true)
             .hexpand(true)
             .build();
+
+        widgets_grid.attach(cpu_view.widget(), 0, 0, 1, 1);
+        widgets_grid.attach(gpu_view.widget(), 1, 0, 1, 1);
 
         let main_view_box = gtk::BoxBuilder::new()
             .orientation(gtk::Orientation::Vertical)
@@ -108,6 +118,7 @@ impl Widgets {
         Self {
             _mwnd: window,
             header,
+            gpu_view,
         }
     }
 }

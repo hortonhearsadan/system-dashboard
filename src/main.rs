@@ -1,5 +1,7 @@
+mod cpu;
 mod dashboard;
 mod fmt;
+mod gpu;
 mod header;
 mod style;
 mod system;

@@ -8,6 +8,9 @@ pub struct SystemInfo {
     pub(crate) host: String,
     pub os: String,
     pub datetime: String,
+    pub gpu_temp: String,
+    pub gpu_usage: String,
+    pub gpu_name: String,
 }
 
 impl SystemInfo {
@@ -22,6 +25,9 @@ impl SystemInfo {
         if let Some(os) = get_os() {
             system_info.os = os
         }
+        if let Some(gpu_name) = get_gpu_name() {
+            system_info.gpu_name = gpu_name
+        }
 
         system_info
     }
@@ -30,7 +36,18 @@ impl SystemInfo {
         if let Some(datetime) = get_datetime() {
             self.datetime = datetime
         }
+        if let Some(gpu_temp) = get_gpu_temp() {
+            self.gpu_temp = gpu_temp
+        }
+        if let Some(gpu_usage) = get_gpu_usage() {
+            self.gpu_usage = gpu_usage
+        }
     }
+}
+
+fn get_gpu_name() -> Option<String> {
+    let args = ["--query-gpu=name", "--format=csv,noheader"];
+    get_command_output("nvidia-smi", Some(&args))
 }
 
 fn get_os() -> Option<String> {
@@ -41,20 +58,34 @@ fn get_os() -> Option<String> {
     }
 }
 
+fn get_gpu_temp() -> Option<String> {
+    let args = ["--query-gpu=temperature.gpu", "--format=csv,noheader"];
+    get_command_output("nvidia-smi", Some(&args))
+}
+
+fn get_gpu_usage() -> Option<String> {
+    let args = ["--query-gpu=utilization.gpu", "--format=csv,noheader"];
+    get_command_output("nvidia-smi", Some(&args))
+}
+
 fn get_datetime() -> Option<String> {
-    get_command_output("date")
+    get_command_output("date", None)
 }
 
 fn get_user() -> Option<String> {
-    get_command_output("whoami")
+    get_command_output("whoami", None)
 }
 
 fn get_host() -> Option<String> {
-    get_command_output("hostname")
+    get_command_output("hostname", None)
 }
 
-fn get_command_output(command: &str) -> Option<String> {
-    if let Ok(output) = Command::new(command).output() {
+fn get_command_output(command: &str, args: Option<&[&str]>) -> Option<String> {
+    let mut c = Command::new(command);
+    if let Some(arguments) = args {
+        c.args(arguments);
+    }
+    if let Ok(output) = c.output() {
         let mut raw = output.stdout.to_string();
         trim_newline(&mut raw);
         Some(raw)

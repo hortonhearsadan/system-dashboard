@@ -7,3 +7,23 @@ pub fn trim_newline(s: &mut String) {
         s.pop();
     }
 }
+
+pub trait Percentify {
+    fn as_percentage(&self) -> String;
+}
+
+impl Percentify for u8 {
+    fn as_percentage(&self) -> String {
+        format!("{}%", self)
+    }
+}
+
+pub trait Celcify {
+    fn as_celcius(&self) -> String;
+}
+
+impl Celcify for u8 {
+    fn as_celcius(&self) -> String {
+        format!("{}C", self)
+    }
+}

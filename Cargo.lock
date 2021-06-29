@@ -746,6 +746,7 @@ dependencies = [
 name = "sysinfo"
 version = "0.1.0"
 dependencies = [
+ "cairo-rs",
  "chrono",
  "gdk",
  "gio",
