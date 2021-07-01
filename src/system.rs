@@ -1,6 +1,9 @@
 use crate::fmt::trim_newline;
+use log::info;
 use os_release::OsRelease;
+use regex::Regex;
 use std::process::Command;
+use systemstat::{Platform, System};
 
 #[derive(Default)]
 pub struct SystemInfo {
@@ -11,6 +14,9 @@ pub struct SystemInfo {
     pub gpu_temp: String,
     pub gpu_usage: String,
     pub gpu_name: String,
+    pub cpu_temp: f32,
+    pub cpu_usage: f32,
+    pub cpu_name: String,
 }
 
 impl SystemInfo {
@@ -28,7 +34,9 @@ impl SystemInfo {
         if let Some(gpu_name) = get_gpu_name() {
             system_info.gpu_name = gpu_name
         }
-
+        if let Some(cpu_name) = get_cpu_name() {
+            system_info.cpu_name = cpu_name;
+        }
         system_info
     }
 
@@ -42,7 +50,31 @@ impl SystemInfo {
         if let Some(gpu_usage) = get_gpu_usage() {
             self.gpu_usage = gpu_usage
         }
+        let cpu_data = System::new();
+        if let Ok(cpu_temp) = cpu_data.cpu_temp() {
+            self.cpu_temp = cpu_temp
+        }
+        if let Ok(_cpu_usage) = cpu_data.cpu_load_aggregate() {
+            // let cpu = cpu_usage.done().unwrap();
+            self.cpu_usage = 70.5;
+            info!("{}", self.cpu_usage);
+        }
     }
+}
+
+fn get_cpu_name() -> Option<String> {
+    let output = get_command_output("lscpu", None);
+    if let Some(cpu) = output {
+        parse_cpu_name(cpu)
+    } else {
+        None
+    }
+}
+
+fn parse_cpu_name(cpu_data: String) -> Option<String> {
+    let re = Regex::new(r"AMD Ry.*?\n").unwrap();
+    let cpu = re.find(&cpu_data).unwrap().as_str();
+    Some(cpu.to_string())
 }
 
 fn get_gpu_name() -> Option<String> {

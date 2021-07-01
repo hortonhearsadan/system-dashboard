@@ -50,7 +50,7 @@ impl Dashboard {
             let (tx, rx) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
             thread::spawn(move || loop {
                 let _ = tx.send(1);
-                thread::sleep(Duration::from_millis(50))
+                thread::sleep(Duration::from_millis(100))
             });
 
             let system_info = RefCell::new(SystemInfo::new());
@@ -73,12 +73,14 @@ fn update(system_info: &RefCell<SystemInfo>, widgets: &Rc<Widgets>) {
     let system_info = system_info.borrow();
     widgets.header.update(&system_info);
     widgets.gpu_view.update(&system_info);
+    widgets.cpu_view.update(&system_info);
 }
 
 struct Widgets {
     _mwnd: gtk::ApplicationWindow,
     header: HeaderView,
     gpu_view: GPUView,
+    cpu_view: CPUView,
 }
 
 impl Widgets {
@@ -97,12 +99,13 @@ impl Widgets {
 
         let widgets_grid = gtk::GridBuilder::new()
             .row_spacing(12)
+            .column_spacing(12)
             .vexpand(true)
             .hexpand(true)
             .build();
 
         widgets_grid.attach(cpu_view.widget(), 0, 0, 1, 1);
-        widgets_grid.attach(gpu_view.widget(), 1, 0, 1, 1);
+        widgets_grid.attach(gpu_view.widget(), 0, 1, 1, 1);
 
         let main_view_box = gtk::BoxBuilder::new()
             .orientation(gtk::Orientation::Vertical)
@@ -119,6 +122,7 @@ impl Widgets {
             _mwnd: window,
             header,
             gpu_view,
+            cpu_view,
         }
     }
 }

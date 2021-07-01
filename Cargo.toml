@@ -16,3 +16,5 @@ glib= "^0.14.0"
 chrono = "^0.4.19"
 os-release = "0.1.0"
 cairo-rs = { version = "^0", features = ["png"] }
+systemstat= "^0.1.8"
+regex="^1.5.4"
