@@ -17,4 +17,11 @@ window {
 #gpu_temp {
  font-size: 80px
 }
+
+#cpu_usage{
+ font-size: 40px
+}
+#gpu_usage{
+ font-size: 40px
+}
 ";

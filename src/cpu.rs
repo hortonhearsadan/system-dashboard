@@ -4,6 +4,7 @@ use crate::system::SystemInfo;
 use cairo::{Context, Format, ImageSurface};
 use gdk::prelude::IsA;
 use gtk::{Align, BoxExt, GridExt, LabelExt, Orientation, StyleContextExt, Widget, WidgetExt};
+use systemstat::Platform;
 
 pub struct CPUView {
     container: gtk::Grid,
@@ -61,7 +62,8 @@ impl CPUView {
     pub fn update(&self, system_info: &SystemInfo) {
         self.cpu_name
             .set_text(&system_info.cpu_name.trim().as_field_name("CPU"));
-        self.cpu_temp.set_text(&system_info.cpu_temp.as_celcius());
+        self.cpu_temp
+            .set_text(&system_info.system.cpu_temp().unwrap().as_celcius());
         self.cpu_usage
             .set_text(&(system_info.cpu_usage as u8).as_percentage());
         update_usage(&self.cpu_usage_arc, system_info.cpu_usage as u8);

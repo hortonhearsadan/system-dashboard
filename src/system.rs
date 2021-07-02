@@ -1,27 +1,45 @@
 use crate::fmt::trim_newline;
+use csv::Reader;
 use log::info;
 use os_release::OsRelease;
 use regex::Regex;
+use serde::Deserialize;
+use std::error::Error;
 use std::process::Command;
 use systemstat::{Platform, System};
 
-#[derive(Default)]
 pub struct SystemInfo {
     pub(crate) user: String,
     pub(crate) host: String,
     pub os: String,
     pub datetime: String,
-    pub gpu_temp: String,
-    pub gpu_usage: String,
-    pub gpu_name: String,
-    pub cpu_temp: f32,
     pub cpu_usage: f32,
     pub cpu_name: String,
+    pub system: System,
+    pub gpu_info: GPUInfo,
 }
 
 impl SystemInfo {
     pub fn new() -> Self {
-        let mut system_info = Self::default();
+        let mut system_info = Self {
+            user: "".to_string(),
+            host: "".to_string(),
+            os: "".to_string(),
+            datetime: "".to_string(),
+            cpu_usage: 0.0,
+            cpu_name: "".to_string(),
+            system: System::new(),
+            gpu_info: Default::default(),
+        };
+
+        if let Ok(gpu_info) = get_gpu_info() {
+            system_info.gpu_info = gpu_info;
+            info!("yooo {:?} ", system_info.gpu_info)
+        }
+
+        if let Some(cpu_name) = get_cpu_name() {
+            system_info.cpu_name = cpu_name;
+        }
         if let Some(user) = get_user() {
             system_info.user = user
         }
@@ -31,12 +49,7 @@ impl SystemInfo {
         if let Some(os) = get_os() {
             system_info.os = os
         }
-        if let Some(gpu_name) = get_gpu_name() {
-            system_info.gpu_name = gpu_name
-        }
-        if let Some(cpu_name) = get_cpu_name() {
-            system_info.cpu_name = cpu_name;
-        }
+        system_info.system = System::new();
         system_info
     }
 
@@ -44,21 +57,52 @@ impl SystemInfo {
         if let Some(datetime) = get_datetime() {
             self.datetime = datetime
         }
-        if let Some(gpu_temp) = get_gpu_temp() {
-            self.gpu_temp = gpu_temp
+        if let Ok(gpu_info) = get_gpu_info() {
+            self.gpu_info = gpu_info;
         }
-        if let Some(gpu_usage) = get_gpu_usage() {
-            self.gpu_usage = gpu_usage
-        }
-        let cpu_data = System::new();
-        if let Ok(cpu_temp) = cpu_data.cpu_temp() {
-            self.cpu_temp = cpu_temp
-        }
-        if let Ok(_cpu_usage) = cpu_data.cpu_load_aggregate() {
+
+        if let Ok(_cpu_usage) = self.system.cpu_load_aggregate() {
             // let cpu = cpu_usage.done().unwrap();
             self.cpu_usage = 70.5;
-            info!("{}", self.cpu_usage);
         }
+    }
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq, Default)]
+pub struct GPUInfo {
+    pub name: String,
+    #[serde(rename = "temperature.gpu")]
+    pub(crate) temperature: u8,
+    #[serde(rename = "utilization.gpu [%]")]
+    pub utilization: u8,
+    #[serde(rename = "memory.total [MiB]")]
+    pub total_memory: u32,
+    #[serde(rename = "memory.used [MiB]")]
+    pub used_memory: u32,
+}
+
+fn get_gpu_info() -> Result<GPUInfo, Box<dyn Error>> {
+    let args = [
+        "--query-gpu=name,temperature.gpu,utilization.gpu,memory.total,memory.used",
+        "--format=csv,nounits",
+    ];
+    if let Some(data) = get_command_output("nvidia-smi", Some(&args)) {
+        let data = data.replace(", ", ",");
+        let mut rdr = Reader::from_reader(data.as_bytes());
+        let mut iter = rdr.deserialize();
+        info!("passed_iter");
+        if let Some(result) = iter.next() {
+            info!("unrip2");
+            let gpu_info: GPUInfo = result?;
+            info!("unrip");
+
+            Ok(gpu_info)
+        } else {
+            info!("rip");
+            Ok(GPUInfo::default())
+        }
+    } else {
+        Ok(GPUInfo::default())
     }
 }
 
@@ -77,27 +121,12 @@ fn parse_cpu_name(cpu_data: String) -> Option<String> {
     Some(cpu.to_string())
 }
 
-fn get_gpu_name() -> Option<String> {
-    let args = ["--query-gpu=name", "--format=csv,noheader"];
-    get_command_output("nvidia-smi", Some(&args))
-}
-
 fn get_os() -> Option<String> {
     if let Ok(osr) = OsRelease::new() {
         Some(osr.pretty_name)
     } else {
         None
     }
-}
-
-fn get_gpu_temp() -> Option<String> {
-    let args = ["--query-gpu=temperature.gpu", "--format=csv,noheader"];
-    get_command_output("nvidia-smi", Some(&args))
-}
-
-fn get_gpu_usage() -> Option<String> {
-    let args = ["--query-gpu=utilization.gpu", "--format=csv,noheader"];
-    get_command_output("nvidia-smi", Some(&args))
 }
 
 fn get_datetime() -> Option<String> {

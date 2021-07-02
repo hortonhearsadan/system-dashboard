@@ -18,3 +18,5 @@ os-release = "0.1.0"
 cairo-rs = { version = "^0", features = ["png"] }
 systemstat= "^0.1.8"
 regex="^1.5.4"
+serde = { version = "^1.0.126", features = ["derive"] }
+csv = "^1.1.6"

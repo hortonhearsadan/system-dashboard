@@ -3,7 +3,6 @@ use crate::system::SystemInfo;
 use cairo::{Context, Format, ImageSurface};
 use gdk::prelude::IsA;
 use gtk::{Align, BoxExt, GridExt, LabelExt, Orientation, StyleContextExt, Widget, WidgetExt};
-use log::info;
 use std::f64::consts::PI;
 
 pub struct GPUView {
@@ -59,17 +58,13 @@ impl GPUView {
     }
 
     pub fn update(&self, system_info: &SystemInfo) {
-        self.gpu_temp.set_text(&system_info.gpu_temp.as_celcius());
-        self.gpu_usage.set_text(&system_info.gpu_usage);
-        self.gpu_name
-            .set_text(&system_info.gpu_name.as_field_name("GPU"));
-        let usages = &system_info.gpu_usage.replace("%", "");
-        if let Ok(usage) = usages.trim().parse::<u8>() {
-            update_usage(&self.gpu_usage_arc, usage);
-            self.container.queue_draw()
-        } else {
-            info!("{:?}", usages.parse::<u8>());
-        }
+        let gpu_info = &system_info.gpu_info;
+        self.gpu_temp.set_text(&gpu_info.temperature.as_celcius());
+        self.gpu_usage
+            .set_text(&gpu_info.utilization.as_percentage());
+        self.gpu_name.set_text(&gpu_info.name.as_field_name("GPU"));
+        update_usage(&self.gpu_usage_arc, gpu_info.utilization);
+        self.container.queue_draw()
     }
 
     pub(super) fn widget(&self) -> &impl IsA<Widget> {
