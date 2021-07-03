@@ -1,13 +1,9 @@
 use crate::fmt::trim_newline;
 use csv::{Reader, ReaderBuilder};
-use log::info;
 use regex::Regex;
 use serde::Deserialize;
-use std::cmp::min;
 use std::error::Error;
 use std::process::Command;
-use sysinfo::System;
-use sysinfo::{ProcessorExt, SystemExt};
 use toml::Value;
 
 #[derive(Default)]
@@ -108,30 +104,6 @@ impl CPUTime {
     fn total_time(&self) -> u64 {
         self.work_time() + self.idle + self.iowait
     }
-    pub fn set(
-        &mut self,
-        user: u64,
-        nice: u64,
-        system: u64,
-        idle: u64,
-        iowait: u64,
-        irq: u64,
-        softirq: u64,
-        steal: u64,
-        guest: u64,
-        guest_nice: u64,
-    ) {
-        self.user = user;
-        self.nice = nice;
-        self.system = system;
-        self.idle = idle;
-        self.iowait = iowait;
-        self.irq = irq;
-        self.softirq = softirq;
-        self.steal = steal;
-        self._guest = guest;
-        self._guest_nice = guest_nice;
-    }
 }
 
 #[derive(Default)]
@@ -142,20 +114,32 @@ pub struct CPUUsageInfo {
 
 impl CPUUsageInfo {
     fn get_cpu_usage(&self) -> u64 {
-        let total = min(self.old.total_time(), self.new.total_time());
-        let work = min(self.new.work_time(), self.old.work_time());
+        let total = fudge(self.new.total_time(), self.old.total_time());
+        let work = fudge(self.new.work_time(), self.old.work_time());
 
-        if total == 0 {
+        if total == 0. {
             0
         } else {
-            info!("{:?}\n{:?}, {}", total, work, work / total);
-            min(work * 100 / total, 100)
+            let usage = work / total * 100.;
+            if usage > 100. {
+                100
+            } else {
+                usage as u64
+            }
         }
     }
 
     fn update(&mut self, cpu_time: CPUTime) {
         self.old = self.new;
         self.new = cpu_time;
+    }
+}
+
+fn fudge(a: u64, b: u64) -> f32 {
+    if a > b {
+        (a - b) as f32
+    } else {
+        1.
     }
 }
 
