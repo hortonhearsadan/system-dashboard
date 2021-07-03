@@ -1,5 +1,5 @@
 [package]
-name = "sys-dasboard"
+name = "sys-dashboard"
 version = "0.1.0"
 authors = ["dan <dancrhorton@gmail.com>"]
 edition = "2018"
@@ -14,9 +14,9 @@ gio = "^0.9"
 gdk = "^0.13"
 glib= "^0.14.0"
 chrono = "^0.4.19"
-os-release = "0.1.0"
 cairo-rs = { version = "^0", features = ["png"] }
 regex="^1.5.4"
 serde = { version = "^1.0.126", features = ["derive"] }
 csv = "^1.1.6"
 sysinfo = "0.19.0"
+toml= "^0.5.8"

@@ -682,15 +682,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
-name = "os-release"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82f29ae2f71b53ec19cc23385f8e4f3d90975195aa3d09171ba3bef7159bec27"
-dependencies = [
- "lazy_static",
-]
-
-[[package]]
 name = "pango"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -959,7 +950,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sys-dasboard"
+name = "sys-dashboard"
 version = "0.1.0"
 dependencies = [
  "cairo-rs",
@@ -970,11 +961,11 @@ dependencies = [
  "glib 0.14.0",
  "gtk",
  "log",
- "os-release",
  "regex",
  "serde",
  "simplelog",
  "sysinfo",
+ "toml",
 ]
 
 [[package]]

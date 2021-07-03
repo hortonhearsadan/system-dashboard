@@ -1,12 +1,13 @@
 use crate::fmt::trim_newline;
 use csv::Reader;
-use os_release::OsRelease;
+use log::info;
 use regex::Regex;
 use serde::Deserialize;
 use std::error::Error;
 use std::process::Command;
 use sysinfo::System;
 use sysinfo::{ProcessorExt, SystemExt};
+use toml::Value;
 
 pub struct SystemInfo {
     pub(crate) user: String,
@@ -121,17 +122,26 @@ fn get_cpu_temp() -> Option<f32> {
 }
 
 fn parse_cpu_name(cpu_data: String) -> Option<String> {
-    let re = Regex::new(r"AMD Ry.*?\n").unwrap();
+    let re = Regex::new(r"Model name:.*?\n").unwrap();
     let cpu = re.find(&cpu_data).unwrap().as_str();
-    Some(cpu.to_string())
+    let cpu = cpu.replace("Model name:", "");
+    Some(cpu.trim().to_string())
 }
 
 fn get_os() -> Option<String> {
-    if let Ok(osr) = OsRelease::new() {
-        Some(osr.pretty_name)
-    } else {
-        None
+    let args = ["/etc/os-release"];
+
+    let mut output = get_command_output("cat", Some(&args)).unwrap();
+    if !output.ends_with('\n') {
+        output.push('\n')
     }
+    let output = output.replace("=", "=\"");
+    let output = output.replace("\n", "\"\n");
+    let output = output.replace("\"\"", "\"");
+    info!("{}", &output);
+    let name = output.parse::<Value>().unwrap()["PRETTY_NAME"].to_string();
+    let os_name = name.replace("\"", "");
+    Some(os_name)
 }
 
 fn get_datetime() -> Option<String> {
