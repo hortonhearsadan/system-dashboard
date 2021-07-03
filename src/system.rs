@@ -1,12 +1,12 @@
 use crate::fmt::trim_newline;
 use csv::Reader;
-use log::info;
 use os_release::OsRelease;
 use regex::Regex;
 use serde::Deserialize;
 use std::error::Error;
 use std::process::Command;
-use systemstat::{Platform, System};
+use sysinfo::System;
+use sysinfo::{ProcessorExt, SystemExt};
 
 pub struct SystemInfo {
     pub(crate) user: String,
@@ -14,9 +14,10 @@ pub struct SystemInfo {
     pub os: String,
     pub datetime: String,
     pub cpu_usage: f32,
+    pub cpu_temp: u8,
     pub cpu_name: String,
-    pub system: System,
     pub gpu_info: GPUInfo,
+    pub system: System,
 }
 
 impl SystemInfo {
@@ -27,14 +28,14 @@ impl SystemInfo {
             os: "".to_string(),
             datetime: "".to_string(),
             cpu_usage: 0.0,
+            cpu_temp: 0,
             cpu_name: "".to_string(),
-            system: System::new(),
             gpu_info: Default::default(),
+            system: System::new_all(),
         };
 
         if let Ok(gpu_info) = get_gpu_info() {
             system_info.gpu_info = gpu_info;
-            info!("yooo {:?} ", system_info.gpu_info)
         }
 
         if let Some(cpu_name) = get_cpu_name() {
@@ -49,7 +50,6 @@ impl SystemInfo {
         if let Some(os) = get_os() {
             system_info.os = os
         }
-        system_info.system = System::new();
         system_info
     }
 
@@ -61,10 +61,13 @@ impl SystemInfo {
             self.gpu_info = gpu_info;
         }
 
-        if let Ok(_cpu_usage) = self.system.cpu_load_aggregate() {
-            // let cpu = cpu_usage.done().unwrap();
-            self.cpu_usage = 70.5;
+        if let Some(cpu_temp) = get_cpu_temp() {
+            self.cpu_temp = cpu_temp as u8
         }
+
+        self.system.refresh_cpu();
+        let cpu_usage = self.system.global_processor_info().cpu_usage();
+        self.cpu_usage = cpu_usage;
     }
 }
 
@@ -90,15 +93,11 @@ fn get_gpu_info() -> Result<GPUInfo, Box<dyn Error>> {
         let data = data.replace(", ", ",");
         let mut rdr = Reader::from_reader(data.as_bytes());
         let mut iter = rdr.deserialize();
-        info!("passed_iter");
         if let Some(result) = iter.next() {
-            info!("unrip2");
             let gpu_info: GPUInfo = result?;
-            info!("unrip");
 
             Ok(gpu_info)
         } else {
-            info!("rip");
             Ok(GPUInfo::default())
         }
     } else {
@@ -113,6 +112,12 @@ fn get_cpu_name() -> Option<String> {
     } else {
         None
     }
+}
+
+fn get_cpu_temp() -> Option<f32> {
+    let args = ["/sys/class/thermal/thermal_zone0/temp"];
+    get_command_output("cat", Some(&args))
+        .map(|output| output.trim().parse::<f32>().unwrap() / 1000.)
 }
 
 fn parse_cpu_name(cpu_data: String) -> Option<String> {
