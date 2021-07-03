@@ -1,39 +1,31 @@
 use crate::fmt::trim_newline;
-use csv::Reader;
+use csv::{Reader, ReaderBuilder};
 use log::info;
 use regex::Regex;
 use serde::Deserialize;
+use std::cmp::min;
 use std::error::Error;
 use std::process::Command;
 use sysinfo::System;
 use sysinfo::{ProcessorExt, SystemExt};
 use toml::Value;
 
+#[derive(Default)]
 pub struct SystemInfo {
     pub(crate) user: String,
     pub(crate) host: String,
     pub os: String,
     pub datetime: String,
-    pub cpu_usage: f32,
+    pub cpu_usage: u64,
     pub cpu_temp: u8,
     pub cpu_name: String,
     pub gpu_info: GPUInfo,
-    pub system: System,
+    pub cpu_usage_info: CPUUsageInfo,
 }
 
 impl SystemInfo {
     pub fn new() -> Self {
-        let mut system_info = Self {
-            user: "".to_string(),
-            host: "".to_string(),
-            os: "".to_string(),
-            datetime: "".to_string(),
-            cpu_usage: 0.0,
-            cpu_temp: 0,
-            cpu_name: "".to_string(),
-            gpu_info: Default::default(),
-            system: System::new_all(),
-        };
+        let mut system_info = Self::default();
 
         if let Ok(gpu_info) = get_gpu_info() {
             system_info.gpu_info = gpu_info;
@@ -66,9 +58,104 @@ impl SystemInfo {
             self.cpu_temp = cpu_temp as u8
         }
 
-        self.system.refresh_cpu();
-        let cpu_usage = self.system.global_processor_info().cpu_usage();
-        self.cpu_usage = cpu_usage;
+        if let Ok(cpu_time) = get_cpu_time() {
+            self.cpu_usage_info.update(cpu_time);
+            self.cpu_usage = self.cpu_usage_info.get_cpu_usage();
+        }
+        // let cpu_usage = self.system.global_processor_info().cpu_usage();
+    }
+}
+
+fn get_cpu_time() -> Result<CPUTime, Box<dyn Error>> {
+    let args = ["/proc/stat", "-n", "1"];
+    if let Some(output) = get_command_output("head", Some(&args)) {
+        let output = output.replace("cpu ", "");
+        let output = output.trim().to_string();
+        let output = output.replace(" ", ",");
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(output.as_bytes());
+        let mut iter = rdr.deserialize();
+        if let Some(result) = iter.next() {
+            let cpu_time: CPUTime = result?;
+            return Ok(cpu_time);
+        } else {
+            return Ok(CPUTime::default());
+        }
+    }
+    Ok(CPUTime::default())
+}
+
+#[derive(Default, Copy, Clone, Deserialize, Debug)]
+pub struct CPUTime {
+    user: u64,
+    nice: u64,
+    system: u64,
+    idle: u64,
+    iowait: u64,
+    irq: u64,
+    softirq: u64,
+    steal: u64,
+    _guest: u64,
+    _guest_nice: u64,
+}
+
+impl CPUTime {
+    fn work_time(&self) -> u64 {
+        self.user + self.nice + self.system + self.irq + self.softirq + self.steal
+    }
+
+    fn total_time(&self) -> u64 {
+        self.work_time() + self.idle + self.iowait
+    }
+    pub fn set(
+        &mut self,
+        user: u64,
+        nice: u64,
+        system: u64,
+        idle: u64,
+        iowait: u64,
+        irq: u64,
+        softirq: u64,
+        steal: u64,
+        guest: u64,
+        guest_nice: u64,
+    ) {
+        self.user = user;
+        self.nice = nice;
+        self.system = system;
+        self.idle = idle;
+        self.iowait = iowait;
+        self.irq = irq;
+        self.softirq = softirq;
+        self.steal = steal;
+        self._guest = guest;
+        self._guest_nice = guest_nice;
+    }
+}
+
+#[derive(Default)]
+pub struct CPUUsageInfo {
+    old: CPUTime,
+    new: CPUTime,
+}
+
+impl CPUUsageInfo {
+    fn get_cpu_usage(&self) -> u64 {
+        let total = min(self.old.total_time(), self.new.total_time());
+        let work = min(self.new.work_time(), self.old.work_time());
+
+        if total == 0 {
+            0
+        } else {
+            info!("{:?}\n{:?}, {}", total, work, work / total);
+            min(work * 100 / total, 100)
+        }
+    }
+
+    fn update(&mut self, cpu_time: CPUTime) {
+        self.old = self.new;
+        self.new = cpu_time;
     }
 }
 
@@ -138,7 +225,6 @@ fn get_os() -> Option<String> {
     let output = output.replace("=", "=\"");
     let output = output.replace("\n", "\"\n");
     let output = output.replace("\"\"", "\"");
-    info!("{}", &output);
     let name = output.parse::<Value>().unwrap()["PRETTY_NAME"].to_string();
     let os_name = name.replace("\"", "");
     Some(os_name)
