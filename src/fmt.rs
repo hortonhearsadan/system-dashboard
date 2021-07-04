@@ -40,11 +40,15 @@ pub fn create_label(label: &str, align: Align) -> gtk::Label {
 }
 
 pub trait Name {
+    fn as_long_field_name(&self, field: &str) -> String;
     fn as_field_name(&self, field: &str) -> String;
 }
 
 impl<T: Display> Name for T {
-    fn as_field_name(&self, field: &str) -> String {
+    fn as_long_field_name(&self, field: &str) -> String {
         format!("{} : {:<40}", field, self)
+    }
+    fn as_field_name(&self, field: &str) -> String {
+        format!("{} : {}", field, self)
     }
 }

@@ -1,11 +1,11 @@
 use crate::fmt::trim_newline;
 use csv::{Reader, ReaderBuilder};
+use log::info;
 use regex::Regex;
 use serde::Deserialize;
 use std::error::Error;
 use std::process::Command;
 use toml::Value;
-
 #[derive(Default)]
 pub struct SystemInfo {
     pub(crate) user: String,
@@ -17,6 +17,8 @@ pub struct SystemInfo {
     pub cpu_name: String,
     pub gpu_info: GPUInfo,
     pub cpu_usage_info: CPUUsageInfo,
+    pub memory_info: MemInfo,
+    pub cpu_freq: f32,
 }
 
 impl SystemInfo {
@@ -58,7 +60,14 @@ impl SystemInfo {
             self.cpu_usage_info.update(cpu_time);
             self.cpu_usage = self.cpu_usage_info.get_cpu_usage();
         }
-        // let cpu_usage = self.system.global_processor_info().cpu_usage();
+
+        if let Some(mem_info) = get_memory_info() {
+            self.memory_info = mem_info
+        }
+
+        if let Some(cpu_freq) = get_cpu_freq() {
+            self.cpu_freq = cpu_freq
+        }
     }
 }
 
@@ -143,7 +152,7 @@ fn fudge(a: u64, b: u64) -> f32 {
     }
 }
 
-#[derive(Debug, Deserialize, Eq, PartialEq, Default)]
+#[derive(Debug, Deserialize, PartialEq, Default)]
 pub struct GPUInfo {
     pub name: String,
     #[serde(rename = "temperature.gpu")]
@@ -154,11 +163,15 @@ pub struct GPUInfo {
     pub total_memory: u32,
     #[serde(rename = "memory.used [MiB]")]
     pub used_memory: u32,
+    #[serde(rename = "power.draw [W]")]
+    pub power_draw: f32,
+    #[serde(rename = "power.limit [W]")]
+    pub power_limit: f32,
 }
 
 fn get_gpu_info() -> Result<GPUInfo, Box<dyn Error>> {
     let args = [
-        "--query-gpu=name,temperature.gpu,utilization.gpu,memory.total,memory.used",
+        "--query-gpu=name,temperature.gpu,utilization.gpu,memory.total,memory.used,power.draw,power.limit",
         "--format=csv,nounits",
     ];
     if let Some(data) = get_command_output("nvidia-smi", Some(&args)) {
@@ -185,6 +198,10 @@ fn get_cpu_name() -> Option<String> {
         None
     }
 }
+fn get_cpu_freq() -> Option<f32> {
+    let args = ["/proc/cpuinfo"];
+    get_command_output("cat", Some(&args)).map(|output| parse_cpu_freq(output).unwrap())
+}
 
 fn get_cpu_temp() -> Option<f32> {
     let args = ["/sys/class/thermal/thermal_zone0/temp"];
@@ -197,6 +214,23 @@ fn parse_cpu_name(cpu_data: String) -> Option<String> {
     let cpu = re.find(&cpu_data).unwrap().as_str();
     let cpu = cpu.replace("Model name:", "");
     Some(cpu.trim().to_string())
+}
+
+fn parse_cpu_freq(cpu_data: String) -> Option<f32> {
+    let re = Regex::new(r"cpu MHz.*?\n").unwrap();
+    let freqs = re.find_iter(&cpu_data);
+    let cpu_freqs = freqs
+        .into_iter()
+        .map(|m| m.as_str().replace("cpu MHz\t\t:", ""))
+        .collect::<Vec<String>>();
+    info!("{:?}", &cpu_freqs);
+    Some(
+        cpu_freqs
+            .iter()
+            .map(|c| c.trim().parse::<f32>().unwrap())
+            .sum::<f32>()
+            / cpu_freqs.len() as f32,
+    )
 }
 
 fn get_os() -> Option<String> {
@@ -212,6 +246,45 @@ fn get_os() -> Option<String> {
     let name = output.parse::<Value>().unwrap()["PRETTY_NAME"].to_string();
     let os_name = name.replace("\"", "");
     Some(os_name)
+}
+
+#[derive(Default)]
+pub struct MemInfo {
+    pub(crate) total: u32,
+    available: u32,
+}
+
+impl MemInfo {
+    pub(crate) fn used_mib(&self) -> u32 {
+        (self.total - self.available) / 1049
+    }
+    pub fn total_mib(&self) -> u32 {
+        self.total / 1049
+    }
+}
+
+fn get_memory_info() -> Option<MemInfo> {
+    let args = ["/proc/meminfo", "-n", "3"];
+
+    if let Some(output) = get_command_output("head", Some(&args)) {
+        let output = output.replace("kB", "");
+        let output = output.replace("\n", ",");
+        let output = output.replace("MemTotal:", "");
+        let output = output.replace("MemFree:", "");
+        let output = output.replace("MemAvailable:", "");
+        let data = output.split(',').collect::<Vec<&str>>();
+        let mems = &data
+            .iter()
+            .map(|s| s.trim().parse::<u32>().unwrap())
+            .collect::<Vec<u32>>();
+        let mem_info = MemInfo {
+            total: mems[0],
+            available: mems[2],
+        };
+        Some(mem_info)
+    } else {
+        None
+    }
 }
 
 fn get_datetime() -> Option<String> {

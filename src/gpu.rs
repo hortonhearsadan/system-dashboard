@@ -11,6 +11,10 @@ pub struct GPUView {
     gpu_usage: gtk::Label,
     gpu_usage_arc: Context,
     gpu_temp: gtk::Label,
+    power_draw: gtk::Label,
+    power_limit: gtk::Label,
+    memory_used: gtk::Label,
+    memory_total: gtk::Label,
 }
 
 impl GPUView {
@@ -20,6 +24,11 @@ impl GPUView {
 
         let gpu_usage = create_label("gpu_usage", Align::Center);
         let gpu_temp = create_label("gpu_temp", Align::Start);
+
+        let power_draw = create_label("power_draw", Align::Start);
+        let power_limit = create_label("power_limit", Align::Start);
+        let memory_used = create_label("memory_used", Align::Start);
+        let memory_total = create_label("memory_total", Align::Start);
 
         let arc_box = gtk::BoxBuilder::new()
             .orientation(Orientation::Vertical)
@@ -42,9 +51,14 @@ impl GPUView {
 
         container.get_style_context().add_class("gpu");
         container.attach(&gpu_name, 0, 0, 1, 1);
-        container.attach(&gpu_usage, 0, 1, 1, 1);
-        container.attach(&gpu_temp, 1, 1, 1, 1);
-        container.attach(&arc_box, 0, 1, 1, 1);
+        container.attach(&gpu_usage, 0, 1, 1, 5);
+        container.attach(&gpu_temp, 1, 1, 1, 5);
+
+        container.attach(&power_draw, 2, 1, 1, 1);
+        container.attach(&power_limit, 2, 2, 1, 1);
+        container.attach(&memory_used, 2, 3, 1, 1);
+        container.attach(&memory_total, 2, 4, 1, 1);
+        container.attach(&arc_box, 0, 1, 1, 5);
         gpu_usage.set_text(&*100u8.as_percentage());
         gpu_temp.set_text(&*100u8.as_celcius());
 
@@ -54,6 +68,10 @@ impl GPUView {
             gpu_usage,
             gpu_temp,
             gpu_name,
+            power_draw,
+            power_limit,
+            memory_used,
+            memory_total,
         }
     }
 
@@ -62,7 +80,16 @@ impl GPUView {
         self.gpu_temp.set_text(&gpu_info.temperature.as_celcius());
         self.gpu_usage
             .set_text(&gpu_info.utilization.as_percentage());
-        self.gpu_name.set_text(&gpu_info.name.as_field_name("GPU"));
+        self.gpu_name
+            .set_text(&gpu_info.name.as_long_field_name("GPU"));
+        self.power_draw
+            .set_text(&gpu_info.power_draw.as_field_name("Power Draw (W)"));
+        self.power_limit
+            .set_text(&gpu_info.power_limit.as_field_name("Power Limit (W)"));
+        self.memory_used
+            .set_text(&gpu_info.used_memory.as_field_name("Memory Used (MiB)"));
+        self.memory_total
+            .set_text(&gpu_info.total_memory.as_field_name("Memory Total (MiB)"));
         update_usage(&self.gpu_usage_arc, gpu_info.utilization);
         self.container.queue_draw()
     }
