@@ -206,7 +206,7 @@ fn get_cpu_freq() -> Option<f32> {
 fn get_cpu_temp() -> Option<f32> {
     let args = ["/sys/class/thermal/thermal_zone0/temp"];
     get_command_output("cat", Some(&args))
-        .map(|output| output.trim().parse::<f32>().unwrap() / 1000.)
+        .map(|output| output.trim().parse::<f32>().unwrap_or_default() / 1000.)
 }
 
 fn parse_cpu_name(cpu_data: String) -> Option<String> {
