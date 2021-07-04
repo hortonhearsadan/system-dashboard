@@ -4,6 +4,7 @@ label {
 	font-weight: bold;
 	font-size: 20px;
     font-family: monospace;
+    color: white;
 }
 
 window {
