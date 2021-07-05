@@ -27,7 +27,7 @@ pub trait Celcify {
 
 impl<T: Display> Celcify for T {
     fn as_celcius(&self) -> String {
-        format!("{}C", self)
+        format!("{:>3}C", self)
     }
 }
 

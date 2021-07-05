@@ -50,7 +50,7 @@ impl GPUView {
         arc_box.pack_start(&arc, false, false, 0);
 
         container.get_style_context().add_class("gpu");
-        container.attach(&gpu_name, 0, 0, 1, 1);
+        container.attach(&gpu_name, 0, 0, 2, 1);
         container.attach(&gpu_usage, 0, 1, 1, 5);
         container.attach(&gpu_temp, 1, 1, 1, 5);
 
@@ -83,9 +83,9 @@ impl GPUView {
         self.gpu_name
             .set_text(&gpu_info.name.as_long_field_name("GPU"));
         self.power_draw
-            .set_text(&gpu_info.power_draw.as_field_name("Power Draw (W)"));
+            .set_text(&(gpu_info.power_draw as u32).as_field_name("Power Draw (W)"));
         self.power_limit
-            .set_text(&gpu_info.power_limit.as_field_name("Power Limit (W)"));
+            .set_text(&(gpu_info.power_limit as u32).as_field_name("Power Limit (W)"));
         self.memory_used
             .set_text(&gpu_info.used_memory.as_field_name("Memory Used (MiB)"));
         self.memory_total

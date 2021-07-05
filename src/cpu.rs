@@ -48,7 +48,7 @@ impl CPUView {
             .build();
 
         container.get_style_context().add_class("cpu");
-        container.attach(&cpu_name, 0, 0, 1, 1);
+        container.attach(&cpu_name, 0, 0, 2, 1);
         container.attach(&cpu_usage, 0, 1, 1, 3);
         container.attach(&cpu_temp, 1, 1, 1, 3);
         container.attach(&arc_box, 0, 1, 1, 3);
