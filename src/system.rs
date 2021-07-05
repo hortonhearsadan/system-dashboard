@@ -1,11 +1,12 @@
 use crate::fmt::trim_newline;
 use csv::{Reader, ReaderBuilder};
-use log::info;
 use regex::Regex;
 use serde::Deserialize;
 use std::error::Error;
+use std::fs::read_to_string;
 use std::process::Command;
 use toml::Value;
+
 #[derive(Default)]
 pub struct SystemInfo {
     pub(crate) user: String,
@@ -72,11 +73,14 @@ impl SystemInfo {
 }
 
 fn get_cpu_time() -> Result<CPUTime, Box<dyn Error>> {
-    let args = ["/proc/stat", "-n", "1"];
-    if let Some(output) = get_command_output("head", Some(&args)) {
-        let output = output.replace("cpu ", "");
-        let output = output.trim().to_string();
-        let output = output.replace(" ", ",");
+    if let Ok(lines) = read_to_string("/proc/stat") {
+        let output = lines
+            .split('\n')
+            .next()
+            .unwrap()
+            .replace("cpu ", "")
+            .trim()
+            .replace(" ", ",");
         let mut rdr = ReaderBuilder::new()
             .has_headers(false)
             .from_reader(output.as_bytes());
@@ -199,14 +203,22 @@ fn get_cpu_name() -> Option<String> {
     }
 }
 fn get_cpu_freq() -> Option<f32> {
-    let args = ["/proc/cpuinfo"];
-    get_command_output("cat", Some(&args)).map(|output| parse_cpu_freq(output).unwrap())
+    if let Ok(freq) = read_to_string("/proc/cpuinfo").map(|output| parse_cpu_freq(output).unwrap())
+    {
+        Some(freq)
+    } else {
+        None
+    }
 }
 
 fn get_cpu_temp() -> Option<f32> {
-    let args = ["/sys/class/thermal/thermal_zone0/temp"];
-    get_command_output("cat", Some(&args))
+    if let Ok(temp) = read_to_string("/sys/class/thermal/thermal_zone0/temp")
         .map(|output| output.trim().parse::<f32>().unwrap_or_default() / 1000.)
+    {
+        Some(temp)
+    } else {
+        None
+    }
 }
 
 fn parse_cpu_name(cpu_data: String) -> Option<String> {
@@ -221,31 +233,31 @@ fn parse_cpu_freq(cpu_data: String) -> Option<f32> {
     let freqs = re.find_iter(&cpu_data);
     let cpu_freqs = freqs
         .into_iter()
-        .map(|m| m.as_str().replace("cpu MHz\t\t:", ""))
-        .collect::<Vec<String>>();
-    info!("{:?}", &cpu_freqs);
-    Some(
-        cpu_freqs
-            .iter()
-            .map(|c| c.trim().parse::<f32>().unwrap())
-            .sum::<f32>()
-            / cpu_freqs.len() as f32,
-    )
+        .map(|m| {
+            m.as_str()
+                .replace("cpu MHz\t\t:", "")
+                .trim()
+                .parse::<f32>()
+                .unwrap()
+        })
+        .collect::<Vec<f32>>();
+    Some(cpu_freqs.iter().sum::<f32>() / cpu_freqs.len() as f32)
 }
 
 fn get_os() -> Option<String> {
-    let args = ["/etc/os-release"];
-
-    let mut output = get_command_output("cat", Some(&args)).unwrap();
-    if !output.ends_with('\n') {
-        output.push('\n')
+    if let Ok(output) = read_to_string("/etc/os-release").map(|s| {
+        s.replace("=", "=\"")
+            .replace("\n", "\"\n")
+            .replace("\"\"", "\"")
+            .parse::<Value>()
+            .unwrap()["PRETTY_NAME"]
+            .to_string()
+            .replace("\"", "")
+    }) {
+        Some(output)
+    } else {
+        None
     }
-    let output = output.replace("=", "=\"");
-    let output = output.replace("\n", "\"\n");
-    let output = output.replace("\"\"", "\"");
-    let name = output.parse::<Value>().unwrap()["PRETTY_NAME"].to_string();
-    let os_name = name.replace("\"", "");
-    Some(os_name)
 }
 
 #[derive(Default)]
@@ -264,18 +276,17 @@ impl MemInfo {
 }
 
 fn get_memory_info() -> Option<MemInfo> {
-    let args = ["/proc/meminfo", "-n", "3"];
-
-    if let Some(output) = get_command_output("head", Some(&args)) {
-        let output = output.replace("kB", "");
-        let output = output.replace("\n", ",");
-        let output = output.replace("MemTotal:", "");
-        let output = output.replace("MemFree:", "");
-        let output = output.replace("MemAvailable:", "");
-        let data = output.split(',').collect::<Vec<&str>>();
-        let mems = &data
-            .iter()
-            .map(|s| s.trim().parse::<u32>().unwrap())
+    if let Ok(lines) = read_to_string("/proc/meminfo") {
+        let mems = lines
+            .replace("kB", "")
+            .replace("\n", ",")
+            .replace("MemTotal:", "")
+            .replace("MemFree:", "")
+            .replace("MemAvailable:", "")
+            .split(',')
+            .enumerate()
+            .take_while(|&(i, _)| i < 3)
+            .map(|(_, s)| s.trim().parse::<u32>().unwrap())
             .collect::<Vec<u32>>();
         let mem_info = MemInfo {
             total: mems[0],
