@@ -19,7 +19,7 @@ pub struct SystemInfo {
     pub gpu_info: GPUInfo,
     pub cpu_usage_info: CPUUsageInfo,
     pub memory_info: MemInfo,
-    pub cpu_freq: f32,
+    pub cpu_freq: Vec<f32>,
 }
 
 impl SystemInfo {
@@ -195,30 +195,18 @@ fn get_gpu_info() -> Result<GPUInfo, Box<dyn Error>> {
 }
 
 fn get_cpu_name() -> Option<String> {
-    let output = get_command_output("lscpu", None);
-    if let Some(cpu) = output {
-        parse_cpu_name(cpu)
-    } else {
-        None
-    }
+    get_command_output("lscpu", None).and_then(parse_cpu_name)
 }
-fn get_cpu_freq() -> Option<f32> {
-    if let Ok(freq) = read_to_string("/proc/cpuinfo").map(|output| parse_cpu_freq(output).unwrap())
-    {
-        Some(freq)
-    } else {
-        None
-    }
+fn get_cpu_freq() -> Option<Vec<f32>> {
+    read_to_string("/proc/cpuinfo")
+        .and_then(parse_cpu_freq)
+        .ok()
 }
 
 fn get_cpu_temp() -> Option<f32> {
-    if let Ok(temp) = read_to_string("/sys/class/thermal/thermal_zone0/temp")
+    read_to_string("/sys/class/thermal/thermal_zone0/temp")
         .map(|output| output.trim().parse::<f32>().unwrap_or_default() / 1000.)
-    {
-        Some(temp)
-    } else {
-        None
-    }
+        .ok()
 }
 
 fn parse_cpu_name(cpu_data: String) -> Option<String> {
@@ -228,10 +216,10 @@ fn parse_cpu_name(cpu_data: String) -> Option<String> {
     Some(cpu.trim().to_string())
 }
 
-fn parse_cpu_freq(cpu_data: String) -> Option<f32> {
+fn parse_cpu_freq(cpu_data: String) -> Result<Vec<f32>, std::io::Error> {
     let re = Regex::new(r"cpu MHz.*?\n").unwrap();
     let freqs = re.find_iter(&cpu_data);
-    let cpu_freqs = freqs
+    let mut cpu_freqs = freqs
         .into_iter()
         .map(|m| {
             m.as_str()
@@ -241,23 +229,36 @@ fn parse_cpu_freq(cpu_data: String) -> Option<f32> {
                 .unwrap()
         })
         .collect::<Vec<f32>>();
-    Some(cpu_freqs.iter().sum::<f32>() / cpu_freqs.len() as f32)
+    float_ord::sort(&mut cpu_freqs);
+    Ok(cpu_freqs)
 }
 
 fn get_os() -> Option<String> {
-    if let Ok(output) = read_to_string("/etc/os-release").map(|s| {
-        s.replace("=", "=\"")
-            .replace("\n", "\"\n")
-            .replace("\"\"", "\"")
-            .parse::<Value>()
-            .unwrap()["PRETTY_NAME"]
-            .to_string()
-            .replace("\"", "")
-    }) {
-        Some(output)
-    } else {
-        None
-    }
+    read_to_string("/etc/os-release")
+        .map(|s| {
+            s.replace("=", "=\"")
+                .replace("\n", "\"\n")
+                .replace("\"\"", "\"")
+                .parse::<Value>()
+                .unwrap()["PRETTY_NAME"]
+                .to_string()
+                .replace("\"", "")
+        })
+        .ok()
+
+    // if let Ok(output) = read_to_string("/etc/os-release").map(|s| {
+    //     s.replace("=", "=\"")
+    //         .replace("\n", "\"\n")
+    //         .replace("\"\"", "\"")
+    //         .parse::<Value>()
+    //         .unwrap()["PRETTY_NAME"]
+    //         .to_string()
+    //         .replace("\"", "")
+    // }) {
+    //     Some(output)
+    // } else {
+    //     None
+    // }
 }
 
 #[derive(Default)]

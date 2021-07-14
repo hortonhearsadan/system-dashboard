@@ -154,6 +154,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "float-ord"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64860170d0b2dd3f1c5af6d96aafa47b5928ac0163116c1ab27313480d82b547"
+
+[[package]]
 name = "futures"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -832,6 +838,7 @@ dependencies = [
  "cairo-rs",
  "chrono",
  "csv",
+ "float-ord",
  "gdk",
  "gio",
  "glib 0.14.0",

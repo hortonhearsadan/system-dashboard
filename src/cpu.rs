@@ -14,6 +14,7 @@ pub struct CPUView {
     ram_used: gtk::Label,
     ram_total: gtk::Label,
     cpu_freq: gtk::Label,
+    max_cpu_freq: gtk::Label,
 }
 
 impl CPUView {
@@ -27,6 +28,7 @@ impl CPUView {
         let ram_total = create_label("memory_total", Align::Start);
         let ram_used = create_label("memory_used", Align::Start);
         let cpu_freq = create_label("cpu_freq", Align::Start);
+        let max_cpu_freq = create_label("max_cpu_freq", Align::Start);
 
         let arc_box = gtk::BoxBuilder::new()
             .orientation(Orientation::Vertical)
@@ -55,6 +57,7 @@ impl CPUView {
         container.attach(&ram_used, 2, 1, 1, 1);
         container.attach(&ram_total, 2, 2, 1, 1);
         container.attach(&cpu_freq, 2, 3, 1, 1);
+        container.attach(&max_cpu_freq, 2, 4, 1, 1);
 
         cpu_usage.set_text(&*100u8.as_percentage());
         cpu_temp.set_text(&*100u8.as_celcius());
@@ -68,6 +71,7 @@ impl CPUView {
             ram_used,
             ram_total,
             cpu_freq,
+            max_cpu_freq,
         }
     }
 
@@ -92,8 +96,14 @@ impl CPUView {
                 .total_mib()
                 .as_field_name("RAM Total (MiB)"),
         );
+        let avg: u32 =
+            (system_info.cpu_freq.iter().sum::<f32>() / system_info.cpu_freq.len() as f32) as u32;
         self.cpu_freq
-            .set_text(&(system_info.cpu_freq as u32).as_field_name("Avg CPU freq. (MHz)"));
+            .set_text(&avg.as_field_name("Avg CPU freq. (MHz)"));
+
+        let max = system_info.cpu_freq.last().unwrap();
+        self.max_cpu_freq
+            .set_text(&(*max as u32).as_field_name("Max CPU freq. (MHz)"));
     }
 
     pub(super) fn widget(&self) -> &impl IsA<Widget> {
